@@ -21,7 +21,33 @@ class MessageListener : ListenerAdapter() {
     override fun onMessageReceived(event: MessageReceivedEvent) {
         if (!event.author.isBot) {
             println("Msg received from '${event.author.name}' (${event.author.id}): ${event.message.contentRaw}")
-            // TODO
+            if (event.message.contentRaw.startsWith("!")) {
+                val response = parseCommand(event.message.contentRaw)
+                when (response) {
+                    is TextResponse -> event.channel.sendMessage(response.msg).queue()
+                    is ErrorResponse -> event.channel.sendMessage("I don't understand.. ?\n${response.msg}").queue()
+                }
+            }
         }
     }
+}
+
+fun parseCommand(command: String): Response {
+    val pieces = command.split(' ')
+    val func = pieces[0]
+    val args = if (pieces.size > 1) pieces.subList(1, pieces.size) else listOf()
+    println(pieces)
+    println(args)
+    return when (func) {
+        "!hello" -> expect(0, args, "!hello") ?: TextResponse("Hello my friend!")
+        "!greet" -> expect(1, args, "!greet <name>") ?: TextResponse("Greetings to ${args[0]}!")
+        else -> NoResponse
+    }
+}
+
+fun expect(expected: Int, args: List<String>, format: String): ErrorResponse? {
+    if (args.size != expected) {
+        return ErrorResponse("Wrong number of arguments. The format of the command is:\n$format")
+    }
+    return null
 }
