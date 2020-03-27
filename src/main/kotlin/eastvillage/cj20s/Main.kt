@@ -13,7 +13,6 @@ fun main(args: Array<String>) {
     } else {
         val jda = JDABuilder(args[0]).build()
         jda.addEventListener(MessageListener())
-        println("Hello world!")
     }
 }
 
@@ -21,7 +20,7 @@ class MessageListener : ListenerAdapter() {
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
         if (!event.author.isBot) {
-            println("Msg received from '${event.author.name}': ${event.message.contentRaw}")
+            println("Msg received from '${event.author.name}' (${event.author.id}): ${event.message.contentRaw}")
             // TODO
         }
     }
