@@ -7,3 +7,5 @@ object NoResponse : Response("")
 class ErrorResponse(msg: String) : Response(msg)
 
 class TextResponse(msg: String) : Response(msg)
+
+class DungeonResponse(msg: String) : Response(msg)

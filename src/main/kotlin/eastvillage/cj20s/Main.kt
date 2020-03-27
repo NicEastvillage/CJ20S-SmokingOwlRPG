@@ -6,8 +6,10 @@ package eastvillage.cj20s
 import eastvillage.cj20s.game.Character
 import eastvillage.cj20s.game.PCClass
 import eastvillage.cj20s.game.Player
+import eastvillage.cj20s.game.dungeon.Direction
+import eastvillage.cj20s.game.dungeon.MoveOutcome
+import eastvillage.cj20s.game.dungeon.dungeons
 import net.dv8tion.jda.core.JDABuilder
-import net.dv8tion.jda.core.entities.User
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent
 import net.dv8tion.jda.core.hooks.ListenerAdapter
 
@@ -17,6 +19,8 @@ fun main(args: Array<String>) {
     } else {
         val jda = JDABuilder(args[0]).build()
         jda.addEventListener(MessageListener())
+
+        println(dungeons)
     }
 }
 
@@ -31,6 +35,7 @@ class MessageListener : ListenerAdapter() {
                 val response = parseCommand(player, event.message.contentRaw)
                 when (response) {
                     is TextResponse -> event.channel.sendMessage(response.msg).queue()
+                    is DungeonResponse -> event.channel.sendMessage("${response.msg}\n${DungeonManager.dungeon.asEmotes()}").queue()
                     is ErrorResponse -> event.channel.sendMessage("${listOf(
                             "I don't understand.. ?",
                             "That's gibberish!",
@@ -56,6 +61,8 @@ fun parseCommand(player: Player, command: String): Response {
         "!help" -> expect(0, args, "!help") ?: helpResponse()
         "!createcharacter" -> expect(2, args, "!createcharacter <name> (wizard|sorcerer|priest|warlock)") ?: createCharacter(player, args[0], args[1])
         "!suicide" -> expect(0, args, "!suicide") ?: suicide(player)
+        "!dungeon" -> expect(0, args, "!dungoen") ?: DungeonResponse("You are right there. \\*points awkwardly with a claw\\*")
+        "!move" -> expect(1, args, "!move (north|south|west|east)") ?: resolveMove(player, args[0])
         else -> NoResponse
     }
 }
@@ -124,5 +131,43 @@ fun suicide(player: Player): TextResponse {
                 "*A sudden fear grasps ${character.pcname}, and they run out of the room screaming. The party does not have time to react before the ${character.pcClass} is gone forever*",
                 "*${character.pcname} spontaneously combust. May them rest in pieces*"
         ).random()}\n\n\\*Sigh\\* Create a new character with the !createcharacter command.")
+    }
+}
+
+fun resolveMove(player: Player, dirStr: String): Response {
+    val dir = when (dirStr) {
+        "north" -> Direction.NORTH
+        "south" -> Direction.SOUTH
+        "west" -> Direction.WEST
+        "east" -> Direction.EAST
+        else -> return ErrorResponse("You can only move north, south, west, or east!")
+    }
+
+    val outcome = DungeonManager.dungeon.move(dir)
+    return when (outcome) {
+        MoveOutcome.SUCCESS -> DungeonResponse("You move $dir")
+        MoveOutcome.FINDS_KEY -> DungeonResponse(listOf(
+                "Despite your incompetence, you manage find a key!",
+                "You move $dir. As you are about to move on something catches your eye. A golden key is lying the in the dust",
+                "An pile of bones lies before you. Creepily you investigate the poor guy's remains - and find a key!",
+                "A key lies on the ground. You decide to pick it up as it might be useful"
+        ).random())
+        MoveOutcome.WALL -> DungeonResponse(listOf(
+                "Eh, you can't",
+                "You walk $dir and bang your head into the wall ..",
+                "A wall blocks your way",
+                "There seem to be a wall there"
+        ).random())
+        MoveOutcome.NEED_KEY -> DungeonResponse(listOf(
+                "There's a door and it's locked",
+                "You try the door handle, but it's locked",
+                "You realize that you don't have the key and facepalms",
+                "The door to the $dir does not move"
+        ).random())
+        MoveOutcome.OPEN_DOOR -> DungeonResponse(listOf(
+                "You slide the key into the keyhole ... it fits! The door opens",
+                "Carefully you unlock the door and push it open. You stare into another dark hallway",
+                "The door creaks as you open it"
+        ).random())
     }
 }
