@@ -14,4 +14,9 @@ object PlayerManager {
             players[user.id] = Player(user)
         }
     }
+
+    fun getOrRegister(user: User): Player {
+        registerIfNew(user)
+        return get(user.id)!!
+    }
 }

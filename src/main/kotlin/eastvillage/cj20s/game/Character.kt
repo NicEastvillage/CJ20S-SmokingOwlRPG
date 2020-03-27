@@ -1,7 +1,7 @@
 package eastvillage.cj20s.game
 
 class Character(
-        owner: Player,
-        pcname: String,
-        pcClass: PCClass
+        val owner: Player,
+        val pcname: String,
+        val pcClass: PCClass
 )
