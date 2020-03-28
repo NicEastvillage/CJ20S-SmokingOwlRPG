@@ -3,12 +3,14 @@ package eastvillage.cj20s.game
 import kotlin.random.Random
 
 class Monster(
-        val name: String?,
+        val realname: String?,
         val race: String,
-        val health: Health,
+        override val health: Health,
         val isBoss: Boolean
-) {
-    val isDead: Boolean get() = health.isDead
+) : Targetable {
+    override val longname: String get() = if (realname == null) "the $race" else "$realname the $race"
+    override val shortName: String get() = "the $race"
+    override val isDead: Boolean get() = health.isDead
 
     companion object {
         fun randomMonster(): Monster = Monster(null, monsterRaces.random(), Health(Random.nextInt(20, 26)), false)
@@ -18,30 +20,36 @@ class Monster(
 
 
 val monsterRaces = listOf(
-        "Goblin",
-        "Rat",
-        "Imp",
-        "Wolf",
-        "Bear",
-        "Skeleton",
-        "Zombie",
-        "Demon",
-        "Elemental",
-        "DragonWelp",
-        "Siren",
-        "Panther",
-        "Ogre",
-        "Grimlin"
+        "goblin",
+        "giant rat",
+        "imp",
+        "wolf",
+        "bear",
+        "skeleton",
+        "zombie",
+        "demon",
+        "elemental",
+        "dragon welp",
+        "siren",
+        "panther",
+        "ogre",
+        "grimlin",
+        "orc",
+        "kobold",
+        "satyr",
+        "troll"
 )
 
 val bossRaces = listOf(
-        "Dragon",
-        "Manticore",
-        "Lich",
-        "Necromancer",
-        "Golem",
-        "Hydra",
-        "Basilisk"
+        "dragon",
+        "manticore",
+        "lich",
+        "necromancer",
+        "golem",
+        "hydra",
+        "basilisk",
+        "gelatinous cube",
+        "minotaur"
 )
 
 val bossNames = listOf(

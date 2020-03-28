@@ -10,6 +10,7 @@ import eastvillage.cj20s.game.dungeon.dungeons
 import net.dv8tion.jda.core.JDABuilder
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent
 import net.dv8tion.jda.core.hooks.ListenerAdapter
+import java.lang.StringBuilder
 
 fun main(args: Array<String>) {
     if (args.isEmpty()) {
@@ -17,8 +18,6 @@ fun main(args: Array<String>) {
     } else {
         val jda = JDABuilder(args[0]).build()
         jda.addEventListener(MessageListener())
-
-        println(dungeons)
     }
 }
 
@@ -33,7 +32,12 @@ class MessageListener : ListenerAdapter() {
                 val response = parseCommand(player, event.message.contentRaw)
                 when (response) {
                     is TextResponse -> event.channel.sendMessage(response.msg).queue()
-                    is DungeonResponse -> event.channel.sendMessage("${response.msg}\n${DungeonManager.dungeon.asEmotes()}").queue()
+                    is DungeonResponse -> {
+                        val encounter = EncounterManager.encounter
+                        val encounterDescription = if (encounter != null) "You are currently fighting ${encounter.monster.longname} in a fierce battle!\n${encounter.toStatusString()}" else ""
+                        val msg = "${response.msg}\n${DungeonManager.dungeon.asEmotes()}\n${encounterDescription}"
+                        event.channel.sendMessage(msg).queue()
+                    }
                     is ErrorResponse -> event.channel.sendMessage("${listOf(
                             "I don't understand.. ?",
                             "That's gibberish!",
@@ -64,6 +68,7 @@ fun parseCommand(player: Player, command: String): Response {
                 ?: DungeonResponse("You are right there. \\*points awkwardly with a claw\\*")
         "!move" -> expect(1, args, "!move (north|south|west|east)") ?: resolveMove(player, args[0])
         "!cast" -> tryCast(player, args)
+        "!character" -> expect(0, args, "!character") ?: characterDetails(player)
         else -> NoResponse
     }
 }
@@ -103,11 +108,11 @@ fun createCharacter(player: Player, characterName: String, classStr: String): Te
                 "May they become a great adventurer!",
                 "I am sure they are nice!",
                 "Interesting character!"
-        ).random()}")
+        ).random()}\nSee information about your character anytime using !character.")
     } else {
         val character = player.character!!
         return TextResponse("""
-            Wait a second. You already have a character, ${character.pcname} the ${character.pcClass}.
+            Wait a second. You already have a character, ${character.realname} the ${character.pcClass}.
             If you want to get rid of him, use !suicide. But keep it clean, okay?
         """.trimIndent())
     }
@@ -128,9 +133,9 @@ fun suicide(player: Player): TextResponse {
                 "Brutal.",
                 "Oof, this is gonna be ugly."
         ).random()}\n${listOf(
-                "*The party glance back and finds ${character.pcname} lying on the floor behind them. Dead. Shocked they looked around the room, but they cannot see the cause of the ${character.pcClass}'s demise*",
-                "*A sudden fear grasps ${character.pcname}, and they run out of the room screaming. The party does not have time to react before the ${character.pcClass} is gone forever*",
-                "*${character.pcname} spontaneously combust. May them rest in pieces*"
+                "*The party glance back and finds ${character.realname} lying on the floor behind them. Dead. Shocked they looked around the room, but they cannot see the cause of the ${character.pcClass}'s demise*",
+                "*A sudden fear grasps ${character.realname}, and they run out of the room screaming. The party does not have time to react before the ${character.pcClass} is gone forever*",
+                "*${character.realname} spontaneously combust. May them rest in pieces*"
         ).random()}\n\n\\*Sigh\\* Create a new character with the !createcharacter command.")
     }
 }
@@ -142,6 +147,27 @@ fun resolveMove(player: Player, dirStr: String): Response {
         "west" -> Direction.WEST
         "east" -> Direction.EAST
         else -> return ErrorResponse("You can only move north, south, west, or east!")
+    }
+
+    val character = player.character
+    if (character == null) {
+        return TextResponse("${listOf(
+                "I am afraid you can't lead the party without a character.",
+                "You don't have a character so you can't do that.",
+                "Shut up ${player.name}! You need a character first."
+        ).random()}\nCreate a new character with the !createcharacter command.")
+    }
+
+    val encounter = EncounterManager.encounter
+    if (encounter != null) {
+        val monster = encounter.monster
+        return TextResponse("${listOf(
+                "You try to flee, but the ${monster.race} is too fast and catches up to you.",
+                "Sorry, you can't escape this combat. The ${monster.race} is coming for you!",
+                "Well. Your party is a bit occupied with a ${monster.race} and can't move.",
+                "Uhhhh, okay. Let's do that afterwards.",
+                "You run towards the hallway, but the ${monster.race} prevents your escape. You are trapped."
+        ).random()}\nYou must defeat the monster by casting spells. Use the !cast command for that.")
     }
 
     val outcome = DungeonManager.dungeon.move(dir)
@@ -170,6 +196,30 @@ fun resolveMove(player: Player, dirStr: String): Response {
                 "Carefully you unlock the door and push it open. You stare into another dark hallway",
                 "The door creaks as you open it"
         ).random())
+        MoveOutcome.ENCOUNTER -> {
+            val monster = EncounterManager.encounter!!.monster
+            if (monster.isBoss) {
+                TextResponse(listOf(
+                        "The room darkens around you. You feel the heat leaving your body. Before you stands ${monster.longname}. Prepare to fight mortals!",
+                        "You shiver as you realize, that you are standing in front of ${monster.longname}.",
+                        "A strange sound startles you. You are in the presence of a great evil. Ready your minds, a long battle with ${monster.longname} is about to begin!",
+                        "The room smells of death and decay. Piles bones surrounds ${monster.longname} who looks directly at you.",
+                        "The adventure is nearing its end. Muster all your strength and hold onto your life as before you is a being of incredible power: ${monster.longname}."
+                ).random())
+            } else {
+                TextResponse(listOf(
+                        "Before you stand a terrifying ${monster.race}. Prepare to fight!",
+                        "In the middle of the room stands a ${monster.race} looking very angry. Roll for initiative!",
+                        "A ${monster.race} jumps in front of you! Prepare your spells!",
+                        "It's an ambush. A ${monster.race} jumps at you with fury in it's eyes.",
+                        "You wander into the room. You hear a click under your feet... You look up and see a ${monster.race} coming at you!",
+                        "You walk in on a ${monster.race} trying to mind its own business.",
+                        "You hear the distinct sound of a ${monster.race} and get ready to fight.",
+                        "The room stinks of ${monster.race}. Unsurprisingly, you see one in the corner as it turns around. It lunges at you!",
+                        "Your power will be tested as a ${monster.race} readies itself before you."
+                ).random())
+            }
+        }
     }
 }
 
@@ -187,10 +237,10 @@ fun tryCast(player: Player, args: List<String>): Response {
     ).random()}\nYou can't cast spells without a character. Create a character with the !createcharacter command")
 
     if (character.isDead) return TextResponse("${listOf(
-            "The ghost of ${character.pcname} the ${character.pcClass} tries to cast a spell - but ghosts cannot cast spells.",
+            "The ghost of ${character.realname} the ${character.pcClass} tries to cast a spell - but ghosts cannot cast spells.",
             "Your character is dead. Sorry not sorry.",
             "You can't cast spells when your character is dead.",
-            "Well, too late my friend. Your character ${character.pcname} is dead."
+            "Well, too late my friend. Your character ${character.realname} is dead."
     ).random()} Create a new character with the !createcharacter command")
 
     val spell = character.spells.firstOrNull { it.name == args[0] }
@@ -198,18 +248,19 @@ fun tryCast(player: Player, args: List<String>): Response {
 
     val encounter = EncounterManager.encounter ?: return ErrorResponse("You can only cast spells while in combat.")
 
+    var target: Targetable? = null
     val outcome = when (spell) {
         is TargetedAttack -> {
             if (args.size == 2) {
                 val targetName = args[1]
                 if (targetName == "enemy") {
-                    spell.perform(character, encounter.monster.health)
+                    spell.perform(character, encounter.monster)
                 } else {
                     val allCharacters = PlayerManager.allPlayers.map { it.character }
-                    val target = allCharacters.firstOrNull { it != null && it.pcname == targetName }
+                    target = allCharacters.firstOrNull { it != null && it.realname == targetName }
                     if (target == null) return ErrorResponse("$targetName is not a valid target. Write the name of either a character or simply 'enemy'")
                     // TODO Target might be dead??
-                    spell.perform(character, target.health)
+                    spell.perform(character, target)
                 }
             } else {
                 return ErrorResponse("""
@@ -226,4 +277,52 @@ fun tryCast(player: Player, args: List<String>): Response {
             }
         }
     }
+
+    val onTargetText = if (target != null) "on ${target.longname}" else ""
+    val deadText = if (target != null && target.isDead && target !is Monster) "\n\n${listOf(
+            "${target.longname.capitalize()} has been eliminated!",
+            "Oof. That means ${target.longname} has died!",
+            "Here ends the adventure of ${target.longname}. May they rest in piece."
+    ).random()}" else ""
+
+    val descriptionOfTheEvents = "You successfully cast ${spell.name}$onTargetText!\n$outcome$deadText"
+
+    if (encounter.monster.isDead) {
+        return endCombat(descriptionOfTheEvents)
+    } else {
+        return TextResponse("$descriptionOfTheEvents\n${encounter.toStatusString()}")
+    }
+}
+
+fun endCombat(descriptionOfTheEvents: String): Response {
+    val monster = EncounterManager.encounter!!.monster
+    EncounterManager.encounter = null
+    return DungeonResponse("$descriptionOfTheEvents\n\n${monster.longname.capitalize()} has been defeated!") // TODO Loot or exp
+}
+
+fun characterDetails(player: Player): TextResponse {
+    val character = player.character
+    if (character == null) {
+        return TextResponse("${listOf(
+                "I am afraid you don't have a character.",
+                "So you want to have a character?",
+                "I would love you tell you have your character.. If you had one!",
+                "Sure. I will tell you about your character. There's just one problem. You don't have a one."
+        ).random()}\nCreate a character with the !createcharacter command.")
+    }
+
+    val desc = StringBuilder("""
+        **Character of $player**
+        Name: ${character.realname}
+        Class: ${character.pcClass}
+        Health: ${character.health.currentHealth}/${character.health.getMaxHealth()} hp, ${character.health.asEmojis(withText = false)}
+
+        **Spells:**
+        
+    """.trimIndent())
+    for (spell in character.spells) {
+        desc.append(spell.name).append(": ").append(spell.desc).append("\n")
+    }
+
+    return TextResponse(desc.toString())
 }

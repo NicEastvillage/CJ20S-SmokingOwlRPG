@@ -14,5 +14,9 @@ class Frontline(val maxSize: Int = 4) {
         }
     }
 
+    val all: List<Character> get() = queue
+
     operator fun get(index: Int): Character? = if (index in 0 until queue.size) queue[index] else null
+
+    fun isEmpty(): Boolean = queue.isEmpty()
 }

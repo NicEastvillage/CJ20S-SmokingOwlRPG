@@ -2,12 +2,14 @@ package eastvillage.cj20s.game
 
 class Character(
         val owner: Player,
-        val pcname: String,
+        val realname: String,
         val pcClass: PCClass
-) {
-    val isDead: Boolean get() = health.isDead
+) : Targetable {
+    override val isDead: Boolean get() = health.isDead
+    override val longname: String get() = "$realname the $pcClass"
+    override val shortName: String get() = realname
 
-    val health: Health = Health(when (pcClass) {
+    override val health: Health = Health(when (pcClass) {
         PCClass.WIZARD -> 18
         PCClass.SORCERER -> 19
         PCClass.PRIEST -> 20

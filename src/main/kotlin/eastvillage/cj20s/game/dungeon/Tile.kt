@@ -1,5 +1,7 @@
 package eastvillage.cj20s.game.dungeon
 
+import eastvillage.cj20s.Emoji
+
 enum class Tile {
     WALL,
     MONSTER,
@@ -21,12 +23,12 @@ enum class Tile {
 
     fun toEmote(): String {
         return when (this) {
-            WALL -> "<:wall:693202949534646323>"
-            MONSTER -> "<:monster:693202949496635475>"
-            BOSS -> "<:boss:693202949656150046>"
-            DOOR -> "<:door:693202949542903948>"
-            KEY -> "<:key:693202949551423538>"
-            CHEST -> "<:chest:693202949525995530>"
+            WALL -> Emoji.WALL
+            MONSTER -> Emoji.MONSTER
+            BOSS -> Emoji.BOSS
+            DOOR -> Emoji.DOOR
+            KEY -> Emoji.KEY
+            CHEST -> Emoji.CHEST
         }
     }
 }

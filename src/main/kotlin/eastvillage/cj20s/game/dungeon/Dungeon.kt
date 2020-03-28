@@ -1,6 +1,10 @@
 package eastvillage.cj20s.game.dungeon
 
+import eastvillage.cj20s.Emoji
+import eastvillage.cj20s.EncounterManager
 import eastvillage.cj20s.Inventory
+import eastvillage.cj20s.game.Encounter
+import eastvillage.cj20s.game.Monster
 
 class Dungeon(
         val width: Int,
@@ -65,9 +69,9 @@ class Dungeon(
         for (y in 0 until height) {
             for (x in 0 until width) {
                 if (px == x && py == y) {
-                    sb.append("<:party:693209897726378116>") // Party's location
+                    sb.append(Emoji.PARTY) // Party's location
                 } else {
-                    sb.append(tiles[y][x]?.toEmote() ?: "<:floor:693202949492572220>")
+                    sb.append(tiles[y][x]?.toEmote() ?: Emoji.FLOOR)
                 }
             }
             sb.append('\n')
@@ -95,6 +99,15 @@ class Dungeon(
                 partyPos = newPos
                 return MoveOutcome.FINDS_KEY
             }
+            if (this[newPos] == Tile.MONSTER || this[newPos] == Tile.BOSS) {
+                EncounterManager.encounter = Encounter(
+                        if (this[newPos] == Tile.MONSTER) Monster.randomMonster()
+                        else Monster.randomBoss()
+                )
+                partyPos = newPos
+                this[newPos] = null
+                return MoveOutcome.ENCOUNTER
+            }
 
             partyPos = newPos
             return MoveOutcome.SUCCESS
@@ -110,6 +123,6 @@ val dungeons = listOf(
             ##D##  
             Cx  ###
             # # # K
-            w   x  
+            wx  x  
         """.trimIndent(), 7, 6)
 )

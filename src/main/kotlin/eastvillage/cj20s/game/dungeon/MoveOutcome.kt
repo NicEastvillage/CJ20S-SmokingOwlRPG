@@ -5,5 +5,6 @@ enum class MoveOutcome {
     FINDS_KEY,
     WALL,
     NEED_KEY,
-    OPEN_DOOR
+    OPEN_DOOR,
+    ENCOUNTER
 }
