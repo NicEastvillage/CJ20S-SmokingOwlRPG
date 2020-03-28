@@ -31,32 +31,60 @@ class MessageListener : ListenerAdapter() {
             val player = PlayerManager.getOrRegister(event.author)
             if (event.message.contentRaw.startsWith("!")) {
                 val response = parseCommand(player, event.message.contentRaw)
-                when (response) {
-                    is TextResponse -> event.channel.sendMessage(response.msg).queue()
-                    is DungeonResponse -> {
-                        val encounter = EncounterManager.encounter
-                        val encounterDescription = if (encounter != null) "You are currently fighting ${encounter.monster.longname} in a fierce battle!\n${encounter.toStatusString()}" else ""
-                        val msg = "${response.msg}\n${DungeonManager.dungeon.asEmotes()}Keys: ${Inventory.keys}, gold: ${Inventory.gold}\n${encounterDescription}"
-                        event.channel.sendMessage(msg).queue()
-                    }
-                    is ErrorResponse -> event.channel.sendMessage("${listOf(
-                            "I don't understand.. ?",
-                            "That's gibberish!",
-                            "Ehm, so I am not the only one here smoking, I see.. ?",
-                            "Sorry, what did you mean to say?",
-                            "That's not how it works!",
-                            "No no no...",
-                            "Uhhhhhhhhh",
-                            "Oh my. That's not correct",
-                            "Sorry. I wasn't listening",
-                            "Lol",
-                            "Error on line 1",
-                            "That does not compile ...",
-                            "Are you making fun of me now?"
-                    ).random()}\n${response.msg}").queue()
-                }
+                makeResonse(event, response)
             }
         }
+    }
+}
+
+fun makeResonse(event: MessageReceivedEvent, response: Response) {
+    when (response) {
+        is TextResponse -> event.channel.sendMessage(response.msg).queue()
+        is DungeonResponse -> {
+            val encounter = EncounterManager.encounter
+            val msg = "${response.msg}\n${DungeonManager.dungeon.asEmotes()}Keys: ${Inventory.keys}, gold: ${Inventory.gold}"
+            event.channel.sendMessage(msg).queue()
+            if (encounter != null) {
+                val encounterDescription = "You are currently fighting ${encounter.monster.longname} in a fierce battle!\n${encounter.toStatusString()}"
+                event.channel.sendMessage(encounterDescription).queue()
+            }
+        }
+        is ChainedResponse -> {
+            makeResonse(event, response.response1)
+            makeResonse(event, response.response2)
+        }
+        is ErrorResponse -> event.channel.sendMessage("${listOf(
+                "I don't understand.. ?",
+                "That's gibberish!",
+                "Ehm, so I am not the only one here smoking, I see.. ?",
+                "Sorry, what did you mean to say?",
+                "That's not how it works!",
+                "No no no...",
+                "Uhhhhhhhhh",
+                "Oh my. That's not correct",
+                "Sorry. I wasn't listening",
+                "Lol",
+                "Error on line 1",
+                "That does not compile ...",
+                "Are you making fun of me now?",
+                "Not quite right. We all have to learn. Or well, not me of course. I am already infinitely wise.",
+                "Heck. Try again mate."
+        ).random()}\n${response.msg}").queue()
+    }
+
+    if (DungeonManager.dungeon.isComplete()) {
+        DungeonManager.beginNewDungeon()
+        event.channel.sendMessage("""
+            Wow, well done, humans! Maybe you are not that bad after all.
+            *Dirty, sweaty, a bit wounded, but proud the party exits the dungeon. They have a smile on their chin even though they lost a few comrades on the way. A nice tavern and a round of beer is ahead. All night the party celebrates in the local tavern telling stories from their adventures and describes in detail how the just barely escaped.
+            That was a good day.*
+            Bla bla bla. Let's skip forward to the next dungeon...
+            *Ahead lies the ruins of the Mesildra. An underground fort long forgotten. The stench is horrible and the darkness is pinch black. The torch light only reaches about 5-6 meters and then ... nothingness. Carefully the party steps into the dungeon.*
+            What would you like to do?
+        """.trimIndent()).queue()
+        Inventory.keys = 0
+        val msg = "${DungeonManager.dungeon.asEmotes()}Keys: ${Inventory.keys}, gold: ${Inventory.gold}"
+        event.channel.sendMessage(msg).queue()
     }
 }
 
@@ -91,12 +119,12 @@ fun helpResponse(): TextResponse {
     return TextResponse("""
         Hello. I am your dungeon master. I will be guiding you and your party through the dungeon!
         Use the following commands to let me know what you want to do:
-        !createcharacter <name> (wizard|sorcerer|priest|warlock)
-        !character
-        !suicide
-        !cast <spell> (<character>|enemy)
-        !dungeon
-        !move (north|south|east|west)
+        !createcharacter <name> (wizard|sorcerer|priest|warlock)    # Create a new character
+        !character                                                  # See your spells and other info about your character
+        !suicide                                                    # Get rid of your character
+        !cast <spell> [<character>]                                 # Cast a spell (only during combat)
+        !dungeon                                                    # See status of the dungeon or combat
+        !move (north|south|east|west)                               # Move the party
         
         The "<something>" means you must enter something valid. (a|b|c) means you must choose one of a, b, or c. And [a|b|c] means you can optionally choose a, b, or c.
     """.trimIndent())
@@ -106,6 +134,9 @@ fun createCharacter(player: Player, characterName: String, classStr: String): Te
     if (player.character == null) {
         if (characterName.length > 12) {
             return TextResponse("That character name is too long. Maybe they have a nickname you can use instead?")
+        }
+        if (characterName.contains('@')) {
+            return TextResponse("Nice try. I had some bug testers check the bot. They did exactly that. Try something without '@', okay :P")
         }
         val pcclass = when (classStr) {
             "wizard" -> PCClass.WIZARD
@@ -241,7 +272,7 @@ fun resolveMove(player: Player, dirStr: String): Response {
             DungeonResponse(listOf(
                     "A beautiful chest lies in the corner. Carefully you open it. You find $gold gold inside!",
                     "You find a big but open treasure chest. It's basically empty, but there's $gold gold pieces lying lonely on the bottom.",
-                    "A body lies on the ground. Moveless and cold. You search the body and find $gold gold pieces.",
+                    "A body lies on the ground. Motionless and cold. You search the body and find $gold gold pieces.",
                     "There are two chests in the room. You open the chest covered in spiderwebs. It's empty and you feel sad. You open the other one expecting it to be empty too. And it is. Dissapointed you pick the $gold gold pieces lying next to the chests."
             ).random())
         }
@@ -251,7 +282,8 @@ fun resolveMove(player: Player, dirStr: String): Response {
 fun tryCast(player: Player, args: List<String>): Response {
     if (args.isEmpty() || args.size > 2) return ErrorResponse("""
     Wrong number of arguments. The format of the command is
-    !cast <spell> [<character>|enemy]
+    !cast <spell> [<character>]
+    By default I assume you cast the spell on the enemy. But you can write a character's name if you wish the target a player character with your spell.
     """.trimIndent())
 
     val character = player.character
@@ -269,30 +301,29 @@ fun tryCast(player: Player, args: List<String>): Response {
     ).random()} Create a new character with the !createcharacter command")
 
     val spell = character.spells.firstOrNull { it.name == args[0] }
-            ?: return ErrorResponse("You don't have a spell named ${args[0]}.")
+            ?: return ErrorResponse("You don't have a spell named ${args[0]}. Use !character to see your spells and other info about your character.")
 
-    val encounter = EncounterManager.encounter ?: return ErrorResponse("You can only cast spells while in combat.")
+    val encounter = EncounterManager.encounter ?: return ErrorResponse(listOf(
+            "You can only cast spells while in combat. Okay?",
+            "Nope. Spells can only be cast during combat.",
+            "I like the enthusiasm. But spells can only be cast during combat.",
+            "Wow there, wait a minute. You can only cast spells while in combat."
+    ).random())
 
     var target: Targetable? = null
     val outcome = when (spell) {
         is TargetedSpell -> {
-            if (args.size == 2) {
+            target = if (args.size == 2) {
                 val targetName = args[1]
-                if (targetName == "enemy") {
-                    spell.perform(character, encounter.monster)
-                } else {
-                    val allCharacters = PlayerManager.allPlayers.map { it.character }
-                    target = allCharacters.firstOrNull { it != null && it.realname == targetName }
-                    if (target == null) return ErrorResponse("$targetName is not a valid target. Write the name of either a character or simply 'enemy'")
-                    // TODO Target might be dead??
-                    spell.perform(character, target)
-                }
+                val allCharacters = PlayerManager.allPlayers.map { it.character }
+                val characterTarget = allCharacters.firstOrNull { it != null && it.realname == targetName }
+                if (characterTarget == null) return ErrorResponse("$targetName is not a valid target. Write the name of either a character or simply 'enemy'")
+                characterTarget
             } else {
-                return ErrorResponse("""
-                Wrong number of arguments. The ${spell.name} spell requires a target. Write the name of the target, either a character name or 'enemy':
-                !cast <spell> [<character>|enemy]
-                """.trimIndent())
+                encounter.monster
             }
+            // TODO Target might be dead??
+            spell.perform(character, target)
         }
         is UntargetedSpell -> {
             if (args.size == 1) {

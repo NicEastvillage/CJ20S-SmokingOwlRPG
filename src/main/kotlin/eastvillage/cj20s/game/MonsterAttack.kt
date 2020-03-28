@@ -33,7 +33,7 @@ object Swipe : MonsterAttack("swipe", "Deal 4 damage to the front character, and
         "${monster.longname.capitalize()} swipes at the party dealing 4 damage to ${fstTarget.shortName} and 3 damage to ${sndTarget.shortName}"
     } else {
         listOf(
-                "${monster.longname.capitalize()} swipes at the party dealing 4 damage to $fstTarget",
+                "${monster.longname.capitalize()} swipes at the party dealing 4 damage to ${fstTarget.shortName}",
                 "Sharp nails streak across the skin of ${fstTarget.longname}. The suffered lacerations cause 4 damage."
         ).random()
     }

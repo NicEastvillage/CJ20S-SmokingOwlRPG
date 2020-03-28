@@ -19,11 +19,11 @@ sealed class UntargetedSpell(
         val perform: (Character) -> String
 ) : Spell(name, desc)
 
-object Fireball : TargetedSpell("fireball", "Deal 9-13 damage to the target. 20% chance to miss.", { caster, target ->
+object Fireball : TargetedSpell("fireball", "Deal 6-13 damage to the target. 20% chance to miss.", { caster, target ->
     if (Random.nextFloat() >= 0.2) {
         val amount = Random.nextInt(9, 14)
         target.health.takeDamage(amount)
-        "${target.longname.capitalize()} takes $amount of damage in the explosion!"
+        "${target.longname.capitalize()} takes $amount points of damage in the explosion!"
     } else {
         "But you miss your target .."
     }

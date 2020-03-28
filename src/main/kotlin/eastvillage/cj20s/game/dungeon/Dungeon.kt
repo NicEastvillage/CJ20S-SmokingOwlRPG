@@ -13,13 +13,13 @@ class Dungeon(
         var partyPos: Vec2i
 ) {
     companion object {
-        fun create(layout: String, width: Int, height: Int): Dungeon {
+        fun create(layout: DungeonLayout): Dungeon {
             var partyPos: Vec2i? = null
             var x = 0
             var y = 0
             val tiles = mutableListOf<MutableList<Tile?>>()
             tiles.add(mutableListOf())
-            for (char in layout) {
+            for (char in layout.layout) {
                 if (char == '\n') {
                     y++
                     tiles.add(mutableListOf())
@@ -41,7 +41,7 @@ class Dungeon(
                     x++
                 }
             }
-            return Dungeon(width, height, tiles, partyPos!!)
+            return Dungeon(layout.width, layout.height, tiles, partyPos!!)
         }
     }
 
@@ -61,6 +61,15 @@ class Dungeon(
             sb.append('\n')
         }
         return sb.toString()
+    }
+
+    fun isComplete(): Boolean {
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                if (this[Vec2i(x, y)] in listOf(Tile.CHEST, Tile.MONSTER, Tile.BOSS)) return false
+            }
+        }
+        return true
     }
 
     fun asEmotes(): String {
@@ -121,13 +130,38 @@ class Dungeon(
     }
 }
 
+class DungeonLayout(val layout: String, val width: Int, val height: Int)
+
 val dungeons = listOf(
-        Dungeon.create("""
-            C# x #X
-               #  C
+        DungeonLayout("""
+            C# x #C
+               #  X
             ##D##  
             Cx  ###
             # # # K
-            wC  x  
-        """.trimIndent(), 7, 6)
+            w   x  
+        """.trimIndent(), 7, 6),
+        DungeonLayout("""
+            xK#CKX  
+             ##### 
+            w   D C
+            ##  #  
+            K#x###x
+            CD #C  
+        """.trimIndent(), 7, 6),
+        DungeonLayout("""
+             C#w DxK
+             xD  ## 
+            x## xC#C
+             K#K##CX
+        """.trimIndent(), 8, 4),
+        DungeonLayout("""
+              C#K 
+            #x##  
+               D#x
+            C #   
+            # # # 
+             X#x w
+            C#C ##
+        """.trimIndent(), 6, 7)
 )
