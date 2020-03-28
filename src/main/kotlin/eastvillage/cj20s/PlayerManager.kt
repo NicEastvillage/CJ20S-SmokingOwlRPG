@@ -6,6 +6,7 @@ import net.dv8tion.jda.core.entities.User
 object PlayerManager {
 
     private val players = mutableMapOf<String, Player>()
+    val allPlayers: List<Player> get() = ArrayList(players.values)
 
     fun get(id: String): Player? = players[id]
 

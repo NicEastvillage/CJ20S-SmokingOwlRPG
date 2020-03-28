@@ -3,9 +3,7 @@
  */
 package eastvillage.cj20s
 
-import eastvillage.cj20s.game.Character
-import eastvillage.cj20s.game.PCClass
-import eastvillage.cj20s.game.Player
+import eastvillage.cj20s.game.*
 import eastvillage.cj20s.game.dungeon.Direction
 import eastvillage.cj20s.game.dungeon.MoveOutcome
 import eastvillage.cj20s.game.dungeon.dungeons
@@ -59,10 +57,13 @@ fun parseCommand(player: Player, command: String): Response {
     return when (func) {
         "!hello" -> expect(0, args, "!hello") ?: TextResponse("Hello my friend!")
         "!help" -> expect(0, args, "!help") ?: helpResponse()
-        "!createcharacter" -> expect(2, args, "!createcharacter <name> (wizard|sorcerer|priest|warlock)") ?: createCharacter(player, args[0], args[1])
+        "!createcharacter" -> expect(2, args, "!createcharacter <name> (wizard|sorcerer|priest|warlock)")
+                ?: createCharacter(player, args[0], args[1])
         "!suicide" -> expect(0, args, "!suicide") ?: suicide(player)
-        "!dungeon" -> expect(0, args, "!dungoen") ?: DungeonResponse("You are right there. \\*points awkwardly with a claw\\*")
+        "!dungeon" -> expect(0, args, "!dungoen")
+                ?: DungeonResponse("You are right there. \\*points awkwardly with a claw\\*")
         "!move" -> expect(1, args, "!move (north|south|west|east)") ?: resolveMove(player, args[0])
+        "!cast" -> tryCast(player, args)
         else -> NoResponse
     }
 }
@@ -169,5 +170,60 @@ fun resolveMove(player: Player, dirStr: String): Response {
                 "Carefully you unlock the door and push it open. You stare into another dark hallway",
                 "The door creaks as you open it"
         ).random())
+    }
+}
+
+fun tryCast(player: Player, args: List<String>): Response {
+    if (args.isEmpty() || args.size > 2) return ErrorResponse("""
+    Wrong number of arguments. The format of the command is
+    !cast <spell> [<character>|enemy]
+    """.trimIndent())
+
+    val character = player.character
+    if (character == null) return TextResponse("${listOf(
+            "Silly human.",
+            "Your spell fizzles .. because there is no one to cast it.",
+            "Spells don't appear from thin air ..."
+    ).random()}\nYou can't cast spells without a character. Create a character with the !createcharacter command")
+
+    if (character.isDead) return TextResponse("${listOf(
+            "The ghost of ${character.pcname} the ${character.pcClass} tries to cast a spell - but ghosts cannot cast spells.",
+            "Your character is dead. Sorry not sorry.",
+            "You can't cast spells when your character is dead.",
+            "Well, too late my friend. Your character ${character.pcname} is dead."
+    ).random()} Create a new character with the !createcharacter command")
+
+    val spell = character.spells.firstOrNull { it.name == args[0] }
+            ?: return ErrorResponse("You don't have a spell named ${args[0]}.")
+
+    val encounter = EncounterManager.encounter ?: return ErrorResponse("You can only cast spells while in combat.")
+
+    val outcome = when (spell) {
+        is TargetedAttack -> {
+            if (args.size == 2) {
+                val targetName = args[1]
+                if (targetName == "enemy") {
+                    spell.perform(character, encounter.monster.health)
+                } else {
+                    val allCharacters = PlayerManager.allPlayers.map { it.character }
+                    val target = allCharacters.firstOrNull { it != null && it.pcname == targetName }
+                    if (target == null) return ErrorResponse("$targetName is not a valid target. Write the name of either a character or simply 'enemy'")
+                    // TODO Target might be dead??
+                    spell.perform(character, target.health)
+                }
+            } else {
+                return ErrorResponse("""
+                Wrong number of arguments. The ${spell.name} spell requires a target. Write the name of the target, either a character name or 'enemy':
+                !cast <spell> [<character>|enemy]
+                """.trimIndent())
+            }
+        }
+        is UntargetedAttack -> {
+            if (args.size == 1) {
+                spell.perform(character)
+            } else {
+                return ErrorResponse("Wrong number of arguments. The ${spell.name} spell does not require a target.")
+            }
+        }
     }
 }
