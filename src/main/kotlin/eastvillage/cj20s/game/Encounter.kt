@@ -4,14 +4,26 @@ class Encounter(
         val monster: Monster
 ) {
     val frontline: Frontline = Frontline()
-    val queuedAttack: String = "TODO"
+    var queuedAttack: MonsterAttack = monster.attacks.random()
+
+    fun resolveAttack(): String {
+        val desc = queuedAttack.perform(monster, frontline)
+        queuedAttack = monster.attacks.random()
+        return desc
+    }
 
     fun toStatusString(): String {
+        val intention = when (queuedAttack.type) {
+            MonsterAttackType.ATTACK -> "An attack"
+            MonsterAttackType.DEFEND -> "A defensive move"
+        }
+
         val desc = StringBuilder("""
-            Enemy:
+            **Enemy:**
             ${monster.longname.capitalize()}, ${monster.health.asEmojis()}
+            Intents to do: $intention
             
-            Your party's frontline:
+            **Your party's frontline:**
             
         """.trimIndent())
 

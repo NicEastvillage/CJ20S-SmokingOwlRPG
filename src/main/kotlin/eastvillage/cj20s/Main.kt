@@ -5,12 +5,13 @@ package eastvillage.cj20s
 
 import eastvillage.cj20s.game.*
 import eastvillage.cj20s.game.dungeon.Direction
+import eastvillage.cj20s.game.dungeon.Dungeon
 import eastvillage.cj20s.game.dungeon.MoveOutcome
-import eastvillage.cj20s.game.dungeon.dungeons
 import net.dv8tion.jda.core.JDABuilder
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent
 import net.dv8tion.jda.core.hooks.ListenerAdapter
 import java.lang.StringBuilder
+import kotlin.random.Random
 
 fun main(args: Array<String>) {
     if (args.isEmpty()) {
@@ -35,7 +36,7 @@ class MessageListener : ListenerAdapter() {
                     is DungeonResponse -> {
                         val encounter = EncounterManager.encounter
                         val encounterDescription = if (encounter != null) "You are currently fighting ${encounter.monster.longname} in a fierce battle!\n${encounter.toStatusString()}" else ""
-                        val msg = "${response.msg}\n${DungeonManager.dungeon.asEmotes()}\n${encounterDescription}"
+                        val msg = "${response.msg}\n${DungeonManager.dungeon.asEmotes()}Keys: ${Inventory.keys}, gold: ${Inventory.gold}\n${encounterDescription}"
                         event.channel.sendMessage(msg).queue()
                     }
                     is ErrorResponse -> event.channel.sendMessage("${listOf(
@@ -45,7 +46,13 @@ class MessageListener : ListenerAdapter() {
                             "Sorry, what did you mean to say?",
                             "That's not how it works!",
                             "No no no...",
-                            "Uhhhhhhhhh"
+                            "Uhhhhhhhhh",
+                            "Oh my. That's not correct",
+                            "Sorry. I wasn't listening",
+                            "Lol",
+                            "Error on line 1",
+                            "That does not compile ...",
+                            "Are you making fun of me now?"
                     ).random()}\n${response.msg}").queue()
                 }
             }
@@ -85,7 +92,11 @@ fun helpResponse(): TextResponse {
         Hello. I am your dungeon master. I will be guiding you and your party through the dungeon!
         Use the following commands to let me know what you want to do:
         !createcharacter <name> (wizard|sorcerer|priest|warlock)
+        !character
         !suicide
+        !cast <spell> (<character>|enemy)
+        !dungeon
+        !move (north|south|east|west)
         
         The "<something>" means you must enter something valid. (a|b|c) means you must choose one of a, b, or c. And [a|b|c] means you can optionally choose a, b, or c.
     """.trimIndent())
@@ -93,6 +104,9 @@ fun helpResponse(): TextResponse {
 
 fun createCharacter(player: Player, characterName: String, classStr: String): TextResponse {
     if (player.character == null) {
+        if (characterName.length > 12) {
+            return TextResponse("That character name is too long. Maybe they have a nickname you can use instead?")
+        }
         val pcclass = when (classStr) {
             "wizard" -> PCClass.WIZARD
             "sorcerer" -> PCClass.SORCERER
@@ -135,7 +149,7 @@ fun suicide(player: Player): TextResponse {
         ).random()}\n${listOf(
                 "*The party glance back and finds ${character.realname} lying on the floor behind them. Dead. Shocked they looked around the room, but they cannot see the cause of the ${character.pcClass}'s demise*",
                 "*A sudden fear grasps ${character.realname}, and they run out of the room screaming. The party does not have time to react before the ${character.pcClass} is gone forever*",
-                "*${character.realname} spontaneously combust. May them rest in pieces*"
+                "*${character.realname} spontaneously combusts. May them rest in pieces*"
         ).random()}\n\n\\*Sigh\\* Create a new character with the !createcharacter command.")
     }
 }
@@ -197,17 +211,18 @@ fun resolveMove(player: Player, dirStr: String): Response {
                 "The door creaks as you open it"
         ).random())
         MoveOutcome.ENCOUNTER -> {
-            val monster = EncounterManager.encounter!!.monster
+            val encounter = EncounterManager.encounter!!
+            val monster = encounter.monster
             if (monster.isBoss) {
-                TextResponse(listOf(
+                TextResponse("${listOf(
                         "The room darkens around you. You feel the heat leaving your body. Before you stands ${monster.longname}. Prepare to fight mortals!",
                         "You shiver as you realize, that you are standing in front of ${monster.longname}.",
                         "A strange sound startles you. You are in the presence of a great evil. Ready your minds, a long battle with ${monster.longname} is about to begin!",
                         "The room smells of death and decay. Piles bones surrounds ${monster.longname} who looks directly at you.",
                         "The adventure is nearing its end. Muster all your strength and hold onto your life as before you is a being of incredible power: ${monster.longname}."
-                ).random())
+                ).random()}\n${encounter.toStatusString()}")
             } else {
-                TextResponse(listOf(
+                TextResponse("${listOf(
                         "Before you stand a terrifying ${monster.race}. Prepare to fight!",
                         "In the middle of the room stands a ${monster.race} looking very angry. Roll for initiative!",
                         "A ${monster.race} jumps in front of you! Prepare your spells!",
@@ -217,8 +232,18 @@ fun resolveMove(player: Player, dirStr: String): Response {
                         "You hear the distinct sound of a ${monster.race} and get ready to fight.",
                         "The room stinks of ${monster.race}. Unsurprisingly, you see one in the corner as it turns around. It lunges at you!",
                         "Your power will be tested as a ${monster.race} readies itself before you."
-                ).random())
+                ).random()}\n${encounter.toStatusString()}")
             }
+        }
+        MoveOutcome.OPEN_CHEST -> {
+            val gold = Random.nextInt(10, 50)
+            Inventory.gold += gold
+            DungeonResponse(listOf(
+                    "A beautiful chest lies in the corner. Carefully you open it. You find $gold gold inside!",
+                    "You find a big but open treasure chest. It's basically empty, but there's $gold gold pieces lying lonely on the bottom.",
+                    "A body lies on the ground. Moveless and cold. You search the body and find $gold gold pieces.",
+                    "There are two chests in the room. You open the chest covered in spiderwebs. It's empty and you feel sad. You open the other one expecting it to be empty too. And it is. Dissapointed you pick the $gold gold pieces lying next to the chests."
+            ).random())
         }
     }
 }
@@ -250,7 +275,7 @@ fun tryCast(player: Player, args: List<String>): Response {
 
     var target: Targetable? = null
     val outcome = when (spell) {
-        is TargetedAttack -> {
+        is TargetedSpell -> {
             if (args.size == 2) {
                 val targetName = args[1]
                 if (targetName == "enemy") {
@@ -269,7 +294,7 @@ fun tryCast(player: Player, args: List<String>): Response {
                 """.trimIndent())
             }
         }
-        is UntargetedAttack -> {
+        is UntargetedSpell -> {
             if (args.size == 1) {
                 spell.perform(character)
             } else {
@@ -278,14 +303,22 @@ fun tryCast(player: Player, args: List<String>): Response {
         }
     }
 
-    val onTargetText = if (target != null) "on ${target.longname}" else ""
+    encounter.frontline.moveToFront(character)
+
+    val onTargetText = if (target != null) " on ${target.longname}" else ""
     val deadText = if (target != null && target.isDead && target !is Monster) "\n\n${listOf(
             "${target.longname.capitalize()} has been eliminated!",
             "Oof. That means ${target.longname} has died!",
             "Here ends the adventure of ${target.longname}. May they rest in piece."
     ).random()}" else ""
 
-    val descriptionOfTheEvents = "You successfully cast ${spell.name}$onTargetText!\n$outcome$deadText"
+    val enemyAttackText = if (!encounter.monster.isDead) {
+        "\n${encounter.resolveAttack()}"
+    } else {
+        ""
+    }
+
+    val descriptionOfTheEvents = "You successfully cast ${spell.name}$onTargetText!\n$outcome$enemyAttackText$deadText"
 
     if (encounter.monster.isDead) {
         return endCombat(descriptionOfTheEvents)

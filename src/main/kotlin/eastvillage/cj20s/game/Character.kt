@@ -16,7 +16,7 @@ class Character(
         PCClass.WARLOCK -> 16
     })
 
-    val spells: MutableList<Attack> = mutableListOf(
+    val spells: MutableList<Spell> = mutableListOf(
             when (pcClass) {
                 PCClass.WIZARD -> Fireball
                 PCClass.SORCERER -> ArcaneBolt

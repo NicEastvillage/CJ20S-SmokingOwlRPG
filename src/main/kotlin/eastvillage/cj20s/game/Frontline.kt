@@ -6,7 +6,7 @@ class Frontline(val maxSize: Int = 4) {
 
     private val queue: LinkedList<Character> = LinkedList()
 
-    private fun moveToFront(character: Character) {
+    fun moveToFront(character: Character) {
         queue.remove(character)
         queue.addFirst(character)
         if (queue.size >= maxSize) {

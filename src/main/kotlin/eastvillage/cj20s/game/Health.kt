@@ -26,6 +26,8 @@ class Health(
 
     fun getMaxHealth(): Int = maxHealth
 
+    fun hasFullHealth(): Boolean = currentHealth == maxHealth
+
     fun asEmojis(withText: Boolean = true, length: Int = 8): String {
         val halves = length * 2
         var greenHalves = (asPercentage * length * 2).toInt()

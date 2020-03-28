@@ -108,6 +108,11 @@ class Dungeon(
                 this[newPos] = null
                 return MoveOutcome.ENCOUNTER
             }
+            if (this[newPos] == Tile.CHEST) {
+                partyPos = newPos
+                this[newPos] = null
+                return MoveOutcome.OPEN_CHEST
+            }
 
             partyPos = newPos
             return MoveOutcome.SUCCESS
@@ -123,6 +128,6 @@ val dungeons = listOf(
             ##D##  
             Cx  ###
             # # # K
-            wx  x  
+            wC  x  
         """.trimIndent(), 7, 6)
 )
