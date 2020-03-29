@@ -7,7 +7,9 @@ import eastvillage.cj20s.game.*
 import eastvillage.cj20s.game.dungeon.Direction
 import eastvillage.cj20s.game.dungeon.Dungeon
 import eastvillage.cj20s.game.dungeon.MoveOutcome
+import net.dv8tion.jda.core.JDA
 import net.dv8tion.jda.core.JDABuilder
+import net.dv8tion.jda.core.entities.Game
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent
 import net.dv8tion.jda.core.hooks.ListenerAdapter
 import java.lang.StringBuilder
@@ -19,20 +21,22 @@ fun main(args: Array<String>) {
     } else {
         val jda = JDABuilder(args[0]).build()
         jda.addEventListener(MessageListener())
+        jda.presence.game = Game.playing("The Dungeon Master")
     }
 }
 
 class MessageListener : ListenerAdapter() {
 
     override fun onMessageReceived(event: MessageReceivedEvent) {
-        if (!event.author.isBot) {
-            println("Msg received from '${event.author.name}' (${event.author.id}): ${event.message.contentRaw}")
+        if (!event.author.isBot && event.channel.id == "693140081732747275") {
+            println("Msg received from ${event.author.name}: ${event.message.contentRaw}")
             PlayerManager.registerIfNew(event.author)
             val player = PlayerManager.getOrRegister(event.author)
             if (event.message.contentRaw.startsWith("!")) {
                 val response = parseCommand(player, event.message.contentRaw)
                 makeResonse(event, response)
             }
+            //event.channel.sendMessage("Hello! I am your dungeon master. I hope you don't mind that I smoke in here. Actually, this is my place, so you can't stop me. Anyway, welcome to the world of Zarkoa. A land far away where magic is very prevalent. Start by creating your character. I will meet you in #general. The rest of your party members have already started. Come on, get moving.").queue()
         }
     }
 }
@@ -70,6 +74,7 @@ fun makeResonse(event: MessageReceivedEvent, response: Response) {
                 "Not quite right. We all have to learn. Or well, not me of course. I am already infinitely wise.",
                 "Heck. Try again mate."
         ).random()}\n${response.msg}").queue()
+        is ActionResponse -> response.action(event)
     }
 
     if (DungeonManager.dungeon.isComplete()) {
@@ -79,7 +84,7 @@ fun makeResonse(event: MessageReceivedEvent, response: Response) {
             *Dirty, sweaty, a bit wounded, but proud the party exits the dungeon. They have a smile on their chin even though they lost a few comrades on the way. A nice tavern and a round of beer is ahead. All night the party celebrates in the local tavern telling stories from their adventures and describes in detail how the just barely escaped.
             That was a good day.*
             Bla bla bla. Let's skip forward to the next dungeon...
-            *Ahead lies the ruins of the Mesildra. An underground fort long forgotten. The stench is horrible and the darkness is pinch black. The torch light only reaches about 5-6 meters and then ... nothingness. Carefully the party steps into the dungeon.*
+            *Ahead lies the ruins of the Mesildra. An underground fort long forgotten. The stench is horrible and the darkness is pitch black. The torch light only reaches about 5-6 meters and then ... nothingness. Carefully the party steps into the dungeon.*
             What would you like to do?
         """.trimIndent()).queue()
         Inventory.keys = 0
@@ -104,13 +109,13 @@ fun parseCommand(player: Player, command: String): Response {
         "!move" -> expect(1, args, "!move (north|south|west|east)") ?: resolveMove(player, args[0])
         "!cast" -> tryCast(player, args)
         "!character" -> expect(0, args, "!character") ?: characterDetails(player)
-        else -> NoResponse
+        else -> ErrorResponse("I do not know that command. Use !help to see possible commands.")
     }
 }
 
 fun expect(expected: Int, args: List<String>, format: String): ErrorResponse? {
     if (args.size != expected) {
-        return ErrorResponse("Wrong number of arguments. The format of the command is:\n$format")
+        return ErrorResponse("Wrong number of arguments. The format of the command is:\n`$format`")
     }
     return null
 }
@@ -119,18 +124,19 @@ fun helpResponse(): TextResponse {
     return TextResponse("""
         Hello. I am your dungeon master. I will be guiding you and your party through the dungeon!
         Use the following commands to let me know what you want to do:
+        ```
         !createcharacter <name> (wizard|sorcerer|priest|warlock)    # Create a new character
         !character                                                  # See your spells and other info about your character
         !suicide                                                    # Get rid of your character
         !cast <spell> [<character>]                                 # Cast a spell (only during combat)
         !dungeon                                                    # See status of the dungeon or combat
         !move (north|south|east|west)                               # Move the party
-        
+        ```
         The "<something>" means you must enter something valid. (a|b|c) means you must choose one of a, b, or c. And [a|b|c] means you can optionally choose a, b, or c.
     """.trimIndent())
 }
 
-fun createCharacter(player: Player, characterName: String, classStr: String): TextResponse {
+fun createCharacter(player: Player, characterName: String, classStr: String): Response {
     if (player.character == null) {
         if (characterName.length > 12) {
             return TextResponse("That character name is too long. Maybe they have a nickname you can use instead?")
@@ -146,19 +152,31 @@ fun createCharacter(player: Player, characterName: String, classStr: String): Te
             else -> return TextResponse("Sorry, in this world you can only be a wizard, sorcerer, priest, or warlock. Not '$classStr'. Did you not read the rules!??!")
         }
         player.character = Character(player, characterName, pcclass)
-        return TextResponse("Very well. You now have a $pcclass named $characterName. ${listOf(
-                "Let the adventure begin!",
-                "Can't wait to tell their story!",
-                "I already like them!",
-                "May they become a great adventurer!",
-                "I am sure they are nice!",
-                "Interesting character!"
-        ).random()}\nSee information about your character anytime using !character.")
+        return ChainedResponse(
+                TextResponse("Very well. You now have a $pcclass named $characterName. ${listOf(
+                    "Let the adventure begin!",
+                    "Can't wait to tell their story!",
+                    "I already like them!",
+                    "May they become a great adventurer!",
+                    "I am sure they are nice!",
+                    "Interesting character!"
+                ).random()}\nSee information about your character anytime using !character."),
+                ActionResponse { event ->
+                    event.guild.controller.removeRolesFromMember(event.member,
+                            event.guild.getRoleById(PCClass.WIZARD.toId()),
+                            event.guild.getRoleById(PCClass.WARLOCK.toId()),
+                            event.guild.getRoleById(PCClass.PRIEST.toId()),
+                            event.guild.getRoleById(PCClass.SORCERER.toId())
+                    ).queue()
+                    println("Assigning role")
+                    event.guild.controller.addSingleRoleToMember(event.member, event.guild.getRoleById(pcclass.toId())).queue()
+                }
+        )
     } else {
         val character = player.character!!
         return TextResponse("""
             Wait a second. You already have a character, ${character.realname} the ${character.pcClass}.
-            If you want to get rid of him, use !suicide. But keep it clean, okay?
+            If you want to get rid of him, use `!suicide`. But keep it clean, okay?
         """.trimIndent())
     }
 }
@@ -170,7 +188,7 @@ fun suicide(player: Player): TextResponse {
                 "You don't even have a character.",
                 "Ha ha, nice try.",
                 "Wow. Well..."
-        ).random()} First you need to create one with the !createcharacter command.")
+        ).random()} First you need to create one with the `!createcharacter` command.")
     } else {
         player.character = null
         return TextResponse("${listOf(
@@ -181,16 +199,16 @@ fun suicide(player: Player): TextResponse {
                 "*The party glance back and finds ${character.realname} lying on the floor behind them. Dead. Shocked they looked around the room, but they cannot see the cause of the ${character.pcClass}'s demise*",
                 "*A sudden fear grasps ${character.realname}, and they run out of the room screaming. The party does not have time to react before the ${character.pcClass} is gone forever*",
                 "*${character.realname} spontaneously combusts. May them rest in pieces*"
-        ).random()}\n\n\\*Sigh\\* Create a new character with the !createcharacter command.")
+        ).random()}\n\n\\*Sigh\\* Create a new character with the `!createcharacter` command.")
     }
 }
 
 fun resolveMove(player: Player, dirStr: String): Response {
     val dir = when (dirStr) {
-        "north" -> Direction.NORTH
-        "south" -> Direction.SOUTH
-        "west" -> Direction.WEST
-        "east" -> Direction.EAST
+        "north", "up" -> Direction.NORTH
+        "south", "down" -> Direction.SOUTH
+        "west", "left" -> Direction.WEST
+        "east", "right" -> Direction.EAST
         else -> return ErrorResponse("You can only move north, south, west, or east!")
     }
 
@@ -200,7 +218,7 @@ fun resolveMove(player: Player, dirStr: String): Response {
                 "I am afraid you can't lead the party without a character.",
                 "You don't have a character so you can't do that.",
                 "Shut up ${player.name}! You need a character first."
-        ).random()}\nCreate a new character with the !createcharacter command.")
+        ).random()}\nCreate a new character with the `!createcharacter` command.")
     }
 
     val encounter = EncounterManager.encounter
@@ -212,7 +230,7 @@ fun resolveMove(player: Player, dirStr: String): Response {
                 "Well. Your party is a bit occupied with a ${monster.race} and can't move.",
                 "Uhhhh, okay. Let's do that afterwards.",
                 "You run towards the hallway, but the ${monster.race} prevents your escape. You are trapped."
-        ).random()}\nYou must defeat the monster by casting spells. Use the !cast command for that.")
+        ).random()}\nYou must defeat the monster by casting spells. Use the `!cast` command for that.")
     }
 
     val outcome = DungeonManager.dungeon.move(dir)
@@ -282,7 +300,7 @@ fun resolveMove(player: Player, dirStr: String): Response {
 fun tryCast(player: Player, args: List<String>): Response {
     if (args.isEmpty() || args.size > 2) return ErrorResponse("""
     Wrong number of arguments. The format of the command is
-    !cast <spell> [<character>]
+    `!cast <spell> [<character>]`
     By default I assume you cast the spell on the enemy. But you can write a character's name if you wish the target a player character with your spell.
     """.trimIndent())
 
@@ -291,17 +309,17 @@ fun tryCast(player: Player, args: List<String>): Response {
             "Silly human.",
             "Your spell fizzles .. because there is no one to cast it.",
             "Spells don't appear from thin air ..."
-    ).random()}\nYou can't cast spells without a character. Create a character with the !createcharacter command")
+    ).random()}\nYou can't cast spells without a character. Create a character with the `!createcharacter` command")
 
     if (character.isDead) return TextResponse("${listOf(
             "The ghost of ${character.realname} the ${character.pcClass} tries to cast a spell - but ghosts cannot cast spells.",
             "Your character is dead. Sorry not sorry.",
             "You can't cast spells when your character is dead.",
             "Well, too late my friend. Your character ${character.realname} is dead."
-    ).random()} Create a new character with the !createcharacter command")
+    ).random()} Create a new character with the `!createcharacter` command")
 
     val spell = character.spells.firstOrNull { it.name == args[0] }
-            ?: return ErrorResponse("You don't have a spell named ${args[0]}. Use !character to see your spells and other info about your character.")
+            ?: return ErrorResponse("You don't have a spell named ${args[0]}. Use `!character` to see your spells and other info about your character.")
 
     val encounter = EncounterManager.encounter ?: return ErrorResponse(listOf(
             "You can only cast spells while in combat. Okay?",
@@ -317,7 +335,7 @@ fun tryCast(player: Player, args: List<String>): Response {
                 val targetName = args[1]
                 val allCharacters = PlayerManager.allPlayers.map { it.character }
                 val characterTarget = allCharacters.firstOrNull { it != null && it.realname == targetName }
-                if (characterTarget == null) return ErrorResponse("$targetName is not a valid target. Write the name of either a character or simply 'enemy'")
+                if (characterTarget == null) return ErrorResponse("$targetName is not a valid target. Write the name of a character - or nothing if you want to target the enemy.")
                 characterTarget
             } else {
                 encounter.monster
@@ -361,7 +379,7 @@ fun tryCast(player: Player, args: List<String>): Response {
 fun endCombat(descriptionOfTheEvents: String): Response {
     val monster = EncounterManager.encounter!!.monster
     EncounterManager.encounter = null
-    return DungeonResponse("$descriptionOfTheEvents\n\n${monster.longname.capitalize()} has been defeated!") // TODO Loot or exp
+    return DungeonResponse("$descriptionOfTheEvents\n\n${monster.longname.capitalize()} has been defeated!\n") // TODO Loot or exp
 }
 
 fun characterDetails(player: Player): TextResponse {
@@ -372,7 +390,7 @@ fun characterDetails(player: Player): TextResponse {
                 "So you want to have a character?",
                 "I would love you tell you have your character.. If you had one!",
                 "Sure. I will tell you about your character. There's just one problem. You don't have a one."
-        ).random()}\nCreate a character with the !createcharacter command.")
+        ).random()}\nCreate a character with the `!createcharacter` command.")
     }
 
     val desc = StringBuilder("""
