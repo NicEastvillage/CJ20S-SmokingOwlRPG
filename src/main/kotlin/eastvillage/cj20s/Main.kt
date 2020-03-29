@@ -162,13 +162,10 @@ fun createCharacter(player: Player, characterName: String, classStr: String): Re
                     "Interesting character!"
                 ).random()}\nSee information about your character anytime using !character."),
                 ActionResponse { event ->
-                    event.guild.controller.removeRolesFromMember(event.member,
-                            event.guild.getRoleById(PCClass.WIZARD.toId()),
-                            event.guild.getRoleById(PCClass.WARLOCK.toId()),
-                            event.guild.getRoleById(PCClass.PRIEST.toId()),
-                            event.guild.getRoleById(PCClass.SORCERER.toId())
-                    ).queue()
-                    println("Assigning role")
+                    val roles = PCClass.values().filter { it != pcclass }.map { it.toId() }
+                    for (id in roles) {
+                        event.guild.controller.removeSingleRoleFromMember(event.member, event.guild.getRoleById(id)).queue()
+                    }
                     event.guild.controller.addSingleRoleToMember(event.member, event.guild.getRoleById(pcclass.toId())).queue()
                 }
         )
@@ -329,7 +326,8 @@ fun tryCast(player: Player, args: List<String>): Response {
     ).random())
 
     var target: Targetable? = null
-    val outcome = when (spell) {
+    lateinit var performAttack: () -> String
+    when (spell) {
         is TargetedSpell -> {
             target = if (args.size == 2) {
                 val targetName = args[1]
@@ -341,17 +339,31 @@ fun tryCast(player: Player, args: List<String>): Response {
                 encounter.monster
             }
             // TODO Target might be dead??
-            spell.perform(character, target)
+            performAttack = { spell.perform(character, target) }
         }
         is UntargetedSpell -> {
             if (args.size == 1) {
-                spell.perform(character)
+                performAttack = {spell.perform(character, encounter.frontline, encounter.monster) }
             } else {
                 return ErrorResponse("Wrong number of arguments. The ${spell.name} spell does not require a target.")
             }
         }
     }
 
+    // Burning
+    val targetables = PlayerManager.allPlayers.mapNotNull { it.character } + encounter.monster
+    var burnText = StringBuilder()
+    for (t in targetables) {
+        if (t.burnCount > 0) {
+            t.health.takeDamage(2)
+            t.burnCount--
+            if (burnText.isBlank()) burnText.append("\n\n")
+            burnText.append("${t.shortName.capitalize()} takes 2 damage from being on fire! (${t.burnCount} more turn) :fire:\n")
+        }
+    }
+
+    // Perform the spell
+    val outcome = performAttack()
     encounter.frontline.moveToFront(character)
 
     val onTargetText = if (target != null) " on ${target.longname}" else ""
@@ -367,7 +379,7 @@ fun tryCast(player: Player, args: List<String>): Response {
         ""
     }
 
-    val descriptionOfTheEvents = "You successfully cast ${spell.name}$onTargetText!\n$outcome$enemyAttackText$deadText"
+    val descriptionOfTheEvents = "You successfully cast ${spell.name}$onTargetText!\n$outcome$enemyAttackText$burnText$deadText"
 
     if (encounter.monster.isDead) {
         return endCombat(descriptionOfTheEvents)

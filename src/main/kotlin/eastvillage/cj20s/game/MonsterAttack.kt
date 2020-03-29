@@ -92,3 +92,19 @@ object Slash : MonsterAttack("slash", "Deal 2 damage to the three front characte
             "${monster.shortName.capitalize()} slashes into the party, dealing 2 damage to ${targets.map { it.realname }.joinToString()}."
     ).random()
 })
+
+object WildFlame : MonsterAttack("wildflame", "Deal 6-8 damage randomly split between the frontline characters", MonsterAttackType.ATTACK, { monster, frontline ->
+    val amount = Random.nextInt(6, 9)
+    val targets = frontline.all
+    val split = mutableMapOf<Character, Int>()
+    for (dmg in 0 until amount) {
+        val target = targets.random()
+        if (target !in split) split[target] = 0
+        split[target] = split[target]!! + 1
+    }
+    for (character in targets) {
+        if (character in split)
+            character.health.takeDamage(split[character]!!)
+    }
+    "The ${monster.race} conjures a wild flame that deals ${split.map { (char, dmg) -> "$dmg damage to ${char.realname}" }.joinToString()}"
+})

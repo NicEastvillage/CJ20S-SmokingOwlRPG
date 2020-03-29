@@ -9,6 +9,8 @@ class Character(
     override val longname: String get() = "$realname the $pcClass"
     override val shortName: String get() = realname
 
+    override var burnCount: Int = 0
+
     override val health: Health = Health(when (pcClass) {
         PCClass.WIZARD -> 18
         PCClass.SORCERER -> 19
@@ -16,12 +18,10 @@ class Character(
         PCClass.WARLOCK -> 16
     })
 
-    val spells: MutableList<Spell> = mutableListOf(
-            when (pcClass) {
-                PCClass.WIZARD -> Fireball
-                PCClass.SORCERER -> ArcaneBolt
-                PCClass.PRIEST -> MinorRestoration
-                PCClass.WARLOCK -> DrainLife
+    val spells: MutableList<Spell> = when (pcClass) {
+                PCClass.WIZARD -> mutableListOf(Fireball, Ignite)
+                PCClass.SORCERER -> mutableListOf(ArcaneBolt, ManaSurge)
+                PCClass.PRIEST -> mutableListOf(MinorRestoration, HealingNova)
+                PCClass.WARLOCK -> mutableListOf(DrainLife, Decay)
             }
-    )
 }

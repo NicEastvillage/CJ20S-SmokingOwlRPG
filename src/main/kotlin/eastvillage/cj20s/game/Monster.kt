@@ -13,6 +13,8 @@ class Monster(
     override val shortName: String get() = "the $race"
     override val isDead: Boolean get() = health.isDead
 
+    override var burnCount: Int = 0
+
     companion object {
         fun randomMonster(): Monster {
             val race = monsterRaces.random()
@@ -32,14 +34,14 @@ class MonsterRace(val race: String, val attacks: List<MonsterAttack>, val health
 val monsterRaces = listOf(
         MonsterRace("goblin", listOf(Bite, Slash), 10, 14, false),
         MonsterRace("giant rat", listOf(Bite), 10, 14, false),
-        MonsterRace("imp", listOf(Claw, Swipe), 12, 15, false),
+        MonsterRace("imp", listOf(Claw, Swipe, WildFlame), 12, 15, false),
         MonsterRace("wolf", listOf(Claw, Swipe, Pounce), 11, 16, false),
         MonsterRace("bear", listOf(Claw, Swipe), 13, 17, false),
         MonsterRace("skeleton", listOf(Slash), 10, 16, false),
         MonsterRace("zombie", listOf(Bite), 14, 15, false),
-        MonsterRace("demon", listOf(Regenerate, Claw), 16, 19, false),
+        MonsterRace("demon", listOf(Regenerate, Claw, WildFlame), 16, 19, false),
 //        MonsterRace("elemental", listOf()),
-//        MonsterRace("dragon welp", listOf()),
+        MonsterRace("dragon welp", listOf(WildFlame, Claw), 12, 20, false),
 //        MonsterRace("siren", listOf()),
         MonsterRace("panther", listOf(Claw, Swipe, Pounce), 10, 15, false),
         MonsterRace("ogre", listOf(Smash), 15, 17, false),
@@ -50,9 +52,9 @@ val monsterRaces = listOf(
 )
 
 val bossRaces = listOf(
-        MonsterRace("dragon", listOf(Claw), 30, 40, true),
+        MonsterRace("dragon", listOf(Claw, WildFlame), 30, 40, true),
         MonsterRace("manticore", listOf(Claw, Swipe, Pounce), 25, 37, true),
-        MonsterRace("lich", listOf(Slash, Regenerate), 31, 37, true),
+        MonsterRace("lich", listOf(Slash, Regenerate, WildFlame), 31, 37, true),
         MonsterRace("necromancer", listOf(Regenerate, Slash), 27, 34, true),
         MonsterRace("golem", listOf(Smash, Swipe), 28, 34, true),
         MonsterRace("hydra", listOf(Bite, Swipe), 33, 40, true),

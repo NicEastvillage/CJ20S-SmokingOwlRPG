@@ -5,4 +5,5 @@ interface Targetable {
     val shortName: String
     val health: Health
     val isDead: Boolean
+    var burnCount: Int
 }
